@@ -39,8 +39,8 @@
 #define MAX_CONIGLI_TANA 2
 
 /* dati da proteggere */
-int conigliNellaTana=0; 
-int tanaLibera=1;
+int conigliNellaTana; 
+int tanaLibera;
 
 /* variabili per la sincronizzazione */
 pthread_mutex_t  mutex;
@@ -59,21 +59,18 @@ void *Coniglio (void *arg)
 { 
 	char Plabel[128];
 	intptr_t indice;
-	intptr_t indiceFiglio;
 
 	indice=(intptr_t)arg;
-	indiceFiglio = (intptr_t)( (int)indice + 1 );
 	sprintf(Plabel,"Coniglio%" PRIiPTR "",indice);
 
-	DBGpthread_mutex_lock(&mutex,Plabel);
-
+	/* aspetto di poter entrare */
+	DBGpthread_mutex_lock(&mutex, Plabel);
 	while(!tanaLibera) {
 		DBGpthread_cond_wait(&condTana, &mutex, Plabel);
 	}
 
 	/* entra nella tana */
 	conigliNellaTana++;
-
 	printf("%s entra nella tana\n", Plabel);
 	fflush(stdout);
 
@@ -93,23 +90,23 @@ void *Coniglio (void *arg)
 	/* si riproduce */
 	printf("%s si riproduce\n", Plabel);
 	fflush(stdout);
-	sleep(2);
 
 	/* esce dalla tana */
+	printf("%s esce dalla tana\n", Plabel);
+	fflush(stdout);
+
 	DBGpthread_mutex_lock(&mutex, Plabel);
 	conigliNellaTana--;
 	/* tana libera */
 	if(conigliNellaTana == 0) {
 		tanaLibera=1;
+		/* sveglia un coniglio per farlo entrare nella tana */
+		DBGpthread_cond_signal(&condTana, Plabel);
 	}
-	DBGpthread_cond_signal(&condTana, Plabel);
 	DBGpthread_mutex_unlock(&mutex, Plabel);
 
-	printf("%s esce dalla tana\n", Plabel);
-	fflush(stdout);
-	
-	crea_coniglio(indiceFiglio);
-
+	/* crea coniglio e esci */
+	crea_coniglio(indice);
 	pthread_exit(NULL); 
 }
 
@@ -118,6 +115,7 @@ int main ( int argc, char* argv[] )
 	int  rc;
 	uintptr_t i=0;
 
+	/* inizializzazione variabili per la sincronizzazione */
 	rc = pthread_mutex_init(&mutex, NULL);
 	if( rc ) PrintERROR_andExit(rc,"pthread_mutex_init failed");
 
@@ -127,8 +125,9 @@ int main ( int argc, char* argv[] )
 	rc = pthread_cond_init(&condPartner, NULL);
 	if( rc ) PrintERROR_andExit(rc,"pthread_cond_init failed");
 
-	/* INIZIALIZZATE VOSTRE VARIABILI CONDIVISE e tutto quel che serve - fate voi */
+	/* variiabili globali condivise */
 	conigliNellaTana=0;
+	tanaLibera=1;
 
 	/* CREAZIONE PTHREAD dei tiratori */
 	for(i=0;i<THREADS;i++) {

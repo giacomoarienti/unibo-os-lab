@@ -65,22 +65,21 @@ void *Alieno(void *arg)
 	}
 
 	/* entro in casa */
+	alieniFuoriCasa--;
+	alieniInCasa++;
 	printf("%s entra in casa\n", Plabel);
 	fflush(stdout);
-	alieniInCasa++;
 
-	/* se sono l'unico alieno in casa aspetto */
+	/* se sono l'unico alieno in casa */
 	if(alieniInCasa == 1) {
 		/* fa entrare un alieno */
 		DBGpthread_cond_signal(&condEntra, Plabel);
-		/* aspetto di poter uscire */
-		DBGpthread_cond_wait(&condEsci, &mutex, Plabel);
 	} else {
-		/* seveglio l'alieno che può uscire*/
+		/* sveglio l'alieno che può uscire*/
 		DBGpthread_cond_signal(&condEsci, Plabel);
-		/* aspetto di poter uscire */
-		DBGpthread_cond_wait(&condEsci, &mutex, Plabel);
 	}
+	/* aspetto di poter uscire */
+	DBGpthread_cond_wait(&condEsci, &mutex, Plabel);
 
 	/* esco dalla casa */
 	printf("%s esce di casa\n", Plabel);
@@ -89,15 +88,17 @@ void *Alieno(void *arg)
 
 	/* faccio entrare un'altro alieno */
 	DBGpthread_cond_signal(&condEntra, Plabel);
+	DBGpthread_mutex_unlock(&mutex, Plabel);
 
 	/* se numero di alieni furoi casa < 3 crea alieni */
 	if(alieniFuoriCasa < 3) {
 		rc=pthread_create(&th,NULL,Alieno,(void*)indice); 
 		if(rc) PrintERROR_andExit(rc,"pthread_create failed");
+		rc=pthread_create(&th,NULL,Alieno,(void*)indice); 
+		if(rc) PrintERROR_andExit(rc,"pthread_create failed");
 	}
 
 	/* muore */
-	DBGpthread_mutex_unlock(&mutex, Plabel);
 	pthread_exit(NULL); 
 }
 
